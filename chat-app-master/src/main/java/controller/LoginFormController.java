@@ -7,36 +7,59 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 
+
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class LoginFormController {
     public JFXTextField txtName;
 
-    public void initialize(){
-
+    public void initialize() {
+        // Initialization logic, if needed
     }
 
     public void logInButtonOnAction(ActionEvent actionEvent) throws IOException {
-        if (!txtName.getText().isEmpty()&&txtName.getText().matches("[A-Za-z0-9]+")){
-            Stage primaryStage = new Stage();
-            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("../view/ClientForm.fxml"));
+        String username = txtName.getText();
 
-            ClientFormController controller = new ClientFormController();
-            controller.setClientName(txtName.getText()); // Set the parameter
-            fxmlLoader.setController(controller);
+        if (!username.isEmpty() && username.matches("[A-Za-z0-9]+")) {
+            try (Connection connection = DBConnection.getConnection()) {
+                
+                String query = "SELECT * FROM users WHERE name = ?";
+                PreparedStatement preparedStatement = connection.prepareStatement(query);
+                preparedStatement.setString(1, username);
 
-            primaryStage.setScene(new Scene(fxmlLoader.load()));
-            primaryStage.setTitle(txtName.getText());
-            primaryStage.setResizable(false);
-            primaryStage.centerOnScreen();
-            primaryStage.setOnCloseRequest(windowEvent -> {
-                controller.shutdown();
-            });
-            primaryStage.show();
+                ResultSet resultSet = preparedStatement.executeQuery();
 
-            txtName.clear();
-        }else{
-            new Alert(Alert.AlertType.ERROR, "Please enter your name").show();
+                if (resultSet.next()) {
+                   
+                    Stage primaryStage = new Stage();
+                    FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("../view/ClientForm.fxml"));
+
+                    ClientFormController controller = new ClientFormController();
+                    controller.setClientName(username); 
+                    fxmlLoader.setController(controller);
+
+                    primaryStage.setScene(new Scene(fxmlLoader.load()));
+                    primaryStage.setTitle(username);
+                    primaryStage.setResizable(false);
+                    primaryStage.centerOnScreen();
+                    primaryStage.setOnCloseRequest(windowEvent -> controller.shutdown());
+                    primaryStage.show();
+
+                    txtName.clear();
+                } else {
+                    
+                    new Alert(Alert.AlertType.ERROR, "User not found. Please register first.").show();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                new Alert(Alert.AlertType.ERROR, "Database error: " + e.getMessage()).show();
+            }
+        } else {
+            // Invalid input
+            new Alert(Alert.AlertType.ERROR, "Please enter a valid username.").show();
         }
     }
 }
